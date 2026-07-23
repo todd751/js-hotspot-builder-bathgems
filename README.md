@@ -1,0 +1,1 @@
+# js-hotspot-builder-bathgems

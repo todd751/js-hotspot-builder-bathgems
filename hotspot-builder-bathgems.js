@@ -1583,6 +1583,17 @@ function copyHotspotsOnly() {
 ═══════════════════════════════════════════════ */
 const WORKER_URL = 'https://hotspot-metaobject-proxy.lakebluemedia.workers.dev';
 
+// Hotspot key: required by the Worker as X-Hotspot-Key. Kept only in this browser's localStorage.
+const HOTSPOT_KEY_STORAGE = 'auraHotspotKey';
+function getHotspotKey() {
+  let k = localStorage.getItem(HOTSPOT_KEY_STORAGE);
+  if (!k) {
+    k = (prompt('Enter the hotspot key to save to Shopify (asked once, stored in this browser):') || '').trim();
+    if (k) localStorage.setItem(HOTSPOT_KEY_STORAGE, k);
+  }
+  return k;
+}
+
 async function saveToShopify() {
   generateJSON();
   const jsonText = document.getElementById('output-code').value;
@@ -1597,6 +1608,12 @@ async function saveToShopify() {
     return;
   }
 
+  const hotspotKey = getHotspotKey();
+  if (!hotspotKey) {
+    showSaveError('Save cancelled — no hotspot key was entered. The key is required to save to Shopify.');
+    return;
+  }
+
   const btn = event && event.target ? event.target.closest('button') : null;
   const originalHTML = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Saving…'; btn.style.opacity = '.7'; }
@@ -1604,9 +1621,13 @@ async function saveToShopify() {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Hotspot-Key': hotspotKey },
       body: JSON.stringify({ site: SITE.key, metaobject: payload })
     });
+    if (res.status === 401) {
+      localStorage.removeItem(HOTSPOT_KEY_STORAGE);
+      alert('Hotspot key rejected - reload and re-enter it');
+    }
     const data = await res.json();
 
     if (btn) { btn.disabled = false; btn.innerHTML = originalHTML; btn.style.opacity = '1'; }
